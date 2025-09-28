@@ -11,7 +11,7 @@ mail:x:8:
 news:x:9:
 uucp:x:10:
 man:x:12:
-proxy:x:13:
+proxy:x:13:netdata
 ftp:x:14:
 kmem:x:15:
 dialout:x:20:nut
@@ -23,7 +23,7 @@ tape:x:26:
 sudo:x:27:
 audio:x:29:
 dip:x:30:
-www-data:x:33:
+www-data:x:33:caddy
 backup:x:34:
 operator:x:37:
 list:x:38:
@@ -39,7 +39,7 @@ staff:x:50:
 games:x:60:
 users:x:100:
 nogroup:x:65534:
-nobody:x:65534:
+nobody:x:65534:netdata
 systemd-timesync:x:101:
 systemd-journal:x:102:
 systemd-network:x:103:
@@ -67,6 +67,8 @@ nut:x:126:
 ladvd:x:127:
 libvirt:x:128:
 nova:x:129:
+truesearch:x:444:
+webshare:x:445:
 builtin_administrators:x:544:
 builtin_users:x:545:
 builtin_guests:x:546:
@@ -74,9 +76,9 @@ apps:x:568:
 webdav:x:666:
 truenas_readonly_administrators:x:951:
 truenas_sharing_administrators:x:952:
-docker:x:999:
+docker:x:999:netdata
 libvirt-qemu:x:986:libvirt-qemu
-haproxy:x:130:
+haproxy:x:130:netdata
 uuidd:x:131:
 i2c:x:132:
 sgx:x:133:
@@ -90,3 +92,4 @@ netdata:x:997:
 sssd:x:122:
 incus:x:996:
 incus-admin:x:995:
+caddy:x:994:

@@ -1,6 +1,6 @@
 ---
 code_name: "Halfmoon"
-debian_release: "bookworm"
+debian_release: "trixie"
 identity_file_path_default: "~/.ssh/id_rsa"
 #
 # List of apt repositories that are used and setup inside the build environment
@@ -10,24 +10,27 @@ identity_file_path_default: "~/.ssh/id_rsa"
 apt-repos:
   base-url: https://apt.sys.truenas.net/
   base-url-internal: http://apt-mirror.tn.ixsystems.net/
-  url: goldeye/nightlies/debian/
-  distribution: bookworm
+  url: halfmoon/nightlies/debian/
+  distribution: trixie
   components: main
   additional:
-  - url: goldeye/nightlies/debian-security/
-    distribution: bookworm-security
+  - url: halfmoon/nightlies/debian-security/
+    distribution: trixie-security
     component: main
-  - url: goldeye/nightlies/debian-backports/
-    distribution: bookworm-backports
+  - url: halfmoon/nightlies/debian-backports/
+    distribution: trixie-backports
     component: "main contrib non-free non-free-firmware"
-  - url: goldeye/nightlies/debian-debug/
-    distribution: bookworm-debug
+  - url: halfmoon/nightlies/debian-debug/
+    distribution: trixie-debug
     component: main
-  - url: goldeye/nightlies/yarn/
+  - url: halfmoon/nightlies/yarn/
     distribution: stable
     component: main
-  - url: goldeye/nightlies/docker/
-    distribution: bookworm
+  - url: halfmoon/nightlies/netdata/
+    distribution: trixie
+    component: main
+  - url: halfmoon/nightlies/docker/
+    distribution: trixie
     component: stable
     key: keys/docker.gpg
 
@@ -36,9 +39,9 @@ apt-repos:
 # NOTE: Installed in the order listed
 ############################################################################
 base-packages:
-- name: libssl3
-  install_recommends: true
 - name: openssl
+  install_recommends: true
+- name: truenas-openssl-provider-fips
   install_recommends: true
 - name: dosfstools
   install_recommends: true
@@ -86,6 +89,8 @@ base-packages:
   install_recommends: true
 - name: grub-efi-amd64-bin
   install_recommends: true
+- name: grub2-common
+  install_recommends: true
 - name: htop
   install_recommends: true
 - name: incus
@@ -106,6 +111,18 @@ base-packages:
 - name: truenas-samba
   install_recommends: true
 - name: python3-truenas-pylibzfs
+  install_recommends: true
+- name: python3-truenas-pykeyring
+  install_recommends: true
+- name: python3-truenas-pwenc
+  install_recommends: true
+- name: python3-truenas-pyscstadmin
+  install_recommends: true
+- name: libtruenas-pwenc1
+  install_recommends: true
+- name: python3-truenas-scram
+  install_recommends: true
+- name: libtruenas-scram1
   install_recommends: true
 - name: truenas-sssd
   install_recommends: true
@@ -165,6 +182,8 @@ base-packages:
   install_recommends: false
 - name: truenas-audit-rules
   install_recommends: false
+- name: restic
+  install_recommends: false
 
 #
 # Packages which are removed from the base TrueNAS SCALE System by default
@@ -202,7 +221,7 @@ build-epoch: 13
 ############################################################################
 apt_preferences:
 - Package: "*"
-  Pin: "release n=bookworm-backports"
+  Pin: "release n=trixie"
   Pin-Priority: 900
 - Package: "*"
   Pin: "origin \"\""
@@ -211,7 +230,7 @@ apt_preferences:
   Pin: "version 525.89*"
   Pin-Priority: 1000
 - Package: "*curl*"
-  Pin: "release n=bookworm-security"
+  Pin: "release n=trixie-security"
   Pin-Priority: 1000
 - Package: "*libcrypto*"
   Pin: "origin \"\""
@@ -223,22 +242,22 @@ apt_preferences:
   Pin: "origin \"\""
   Pin-Priority: 1050
 - Package: "*node*"
-  Pin: "release n=bookworm-security"
+  Pin: "release n=trixie-security"
   Pin-Priority: 1000
 - Package: "*policykit*"
-  Pin: "release n=bookworm-security"
+  Pin: "release n=trixie-security"
   Pin-Priority: 1000
 - Package: "*polkit*"
-  Pin: "release n=bookworm-security"
+  Pin: "release n=trixie-security"
   Pin-Priority: 1000
 - Package: "*ssh*"
-  Pin: "release n=bookworm-security"
+  Pin: "release n=trixie-security"
   Pin-Priority: 1000
 - Package: "*ssl*"
   Pin: "origin \"\""
   Pin-Priority: 1050
 - Package: "*tls*"
-  Pin: "release n=bookworm-security"
+  Pin: "release n=trixie-security"
   Pin-Priority: 1000
 - Package: "*zfs*"
   Pin: "version 2.1.*"
@@ -282,9 +301,9 @@ additional-packages:
 - name: ndctl
   comment: requested by community (NAS-108490)
   install_recommends: true
-- name: ipmctl
-  comment: requested by community (NAS-108490)
-  install_recommends: true
+# - name: ipmctl
+#  comment: requested by community (NAS-108490)
+#  install_recommends: true
 - name: acpica-tools
   comment: requested by platform team (NAS-118432)
   install_recommends: true
@@ -342,14 +361,11 @@ iso-packages:
 # to be built
 ############################################################################
 sources:
-- name: openssl
-  repo: https://github.com/truenas/openssl
+- name: truenas-openssl-provider-fips
+  repo: https://github.com/truenas/openssl-fips
   branch: master
-  generate_version: false
-  batch_priority: 0
   predepscmd:
     - "apt install -y wget xz-utils"
-    - "./pull.sh"
 - name: kernel
   repo: https://github.com/truenas/linux
   branch: truenas/linux-6.12
@@ -358,12 +374,10 @@ sources:
   env:
     EXTRAVERSION: "-production"
     PYTHON: "python3"
-  explicit_deps:
-   - python3
   predepscmd:
     - "apt install -y flex bison dwarves libssl-dev devscripts"
     # Install dependencies to build perf
-    - "apt install -y libelf-dev libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libperl-dev binutils-dev libiberty-dev python3 python3-setuptools python3-dev liblzma-dev libzstd-dev libcap-dev libnuma-dev libbabeltrace-dev openjdk-17-jdk libcapstone-dev llvm-dev"
+    - "apt install -y libelf-dev libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libperl-dev binutils-dev libiberty-dev python3 python3-setuptools python3-dev liblzma-dev libzstd-dev libcap-dev libnuma-dev libbabeltrace-dev openjdk-21-jdk libcapstone-dev llvm-dev"
     # We remove git files because kernel makefile tries to interact with git for determining version
     # which results in misconfigured version due to our debian based changes
     - "rm -rf .git .gitattributes .gitignore"
@@ -426,7 +440,6 @@ sources:
   explicit_deps:
     - kernel
     - kernel-dbg
-    - openssl
   generate_version: false
   subpackages:
     - name: openzfs-dbg
@@ -453,13 +466,24 @@ sources:
       explicit_deps:
         - kernel
         - kernel-dbg
-        - openssl
       generate_version: false
+- name: truenas_pylibvirt
+  repo: https://github.com/truenas/truenas_pylibvirt
+  branch: master
 - name: truenas_pylibzfs
   repo: https://github.com/truenas/truenas_pylibzfs
   branch: master
   explicit_deps:
     - openzfs
+- name: truenas_pykeyring
+  repo: https://github.com/truenas/truenas_pykeyring
+  branch: master
+- name: truenas_pwenc
+  repo: https://github.com/truenas/truenas_pwenc
+  branch: master
+- name: truenas_scram
+  repo: https://github.com/truenas/truenas_scram
+  branch: master
 - name: truenas_samba
   repo: https://github.com/truenas/samba
   branch: SCALE-v4-22-stable
@@ -467,6 +491,11 @@ sources:
   batch_priority: 0
   explicit_deps:
     - openzfs
+- name: truenas_pyscstadmin
+  repo: https://github.com/truenas/truenas_pyscstadmin
+  branch: master
+  buildcmd:
+    - "dpkg-buildpackage -us -uc -b"
 - name: truenas_sssd
   repo: https://github.com/truenas/sssd
   branch: truenas/2.9
@@ -485,19 +514,19 @@ sources:
     - "sh -x fetch.sh"
   explicit_deps:
     - openzfs
-    - python3
     - truenas_samba
     - truenas_sssd
 - name: truenas_spdk
   repo: https://github.com/truenas/truenas_spdk
   branch: master
   generate_version: false
+  env:
+    PIP_BREAK_SYSTEM_PACKAGES: "1"
   predepscmd:
     - "apt install -y rsync"
     - "sh -x fetch.sh"
     - "scripts/pkgdep.sh  --rdma"
   explicit_deps:
-    - python3
     - kernel
     - kernel-dbg
 - name: avahi
@@ -563,6 +592,8 @@ sources:
   branch: master
 - name: truenas_webui
   repo: https://github.com/truenas/webui
+  env:
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
   predepscmd:
     - "apt -y install wget"
   prebuildcmd:
@@ -623,6 +654,8 @@ sources:
       explicit_deps:
         - truenas_samba
         - truenas_sssd
+        - truenas_pwenc
+        - truenas_pyscstadmin
       subdir: src/middlewared
     - name: middlewared-docs
       subdir: src/middlewared_docs
@@ -662,11 +695,6 @@ sources:
   branch: master
   deoptions: nocheck
   generate_version: false
-- name: restic
-  repo: https://github.com/truenas/restic
-  branch: master
-  deoptions: nocheck
-  generate_version: false
 - name: py_sg3
   repo: https://github.com/truenas/py-sg3
   branch: master
@@ -679,25 +707,6 @@ sources:
     - "./pull.sh"
   deoptions: nocheck
   generate_version: false
-- name: util-linux
-  repo: https://github.com/truenas/util-linux
-  branch: master
-  debian_fork: true
-  predepscmd:
-    - "apt install -y wget xz-utils"
-    - "./pull.sh"
-  deoptions: nocheck
-  generate_version: false
-- name: python3
-  repo: https://github.com/truenas/python.git
-  branch: master
-  batch_priority: 0
-  deoptions: nocheck
-  generate_version: false
-  predepscmd:
-    - "apt install -y python3-docs-theme python3-sphinx texinfo wget"
-    - "wget https://www.python.org/ftp/python/3.11.9/Python-3.11.9.tar.xz"
-    - "tar --strip-components=1 -xvf Python-3.11.9.tar.xz"
 - name: truenas_audit_rules
   repo: https://github.com/truenas/audit_rules.git
   branch: master
@@ -712,3 +721,18 @@ sources:
 extensions:
   nvidia:
     current: "570.172.08"
+
+# External packages from various sources (GitHub releases, assets.sys.truenas.net)
+############################################################################
+external-packages:
+  truenas-file-manager:
+    deb_version: "0.2.9"
+    url_template: "https://assets.sys.truenas.net/debian-packages/{package}_{version}_{arch}.deb"
+  truesearch:
+    deb_version: "0.0.5"
+    url_template: "https://assets.sys.truenas.net/debian-packages/{package}_{version}_{arch}.deb"
+  caddy:
+    deb_version: "2.10.0"
+    url_template: "https://github.com/caddyserver/caddy/releases/download/v{version}/caddy_{version}_linux_{arch}.deb"
+    post_install_commands:
+      - ["systemctl", "disable", "caddy"]

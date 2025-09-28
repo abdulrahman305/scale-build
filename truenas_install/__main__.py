@@ -51,6 +51,7 @@ from .utils import getmntinfo, get_pids  # noqa
 
 logger = logging.getLogger(__name__)
 
+BIOS_BOOT_PARTITION_GUID = "21686148-6449-6E6F-744E-656564454649"
 EFI_SYSTEM_PARTITION_GUID = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 
 RE_UNSQUASHFS_PROGRESS = re.compile(r"\[.+]\s+(?P<extracted>[0-9]+)/(?P<total>[0-9]+)\s+(?P<progress>[0-9]+)%")
@@ -534,6 +535,8 @@ def main():
 
                 run_command(["mount", "-t", "sysfs", "none", f"{root}/sys"])
                 undo.append(["umount", f"{root}/sys"])
+                if os.path.exists("/sys/firmware/efi"):
+                    undo.append(["umount", f"{root}/sys/firmware/efi/efivars"])
 
                 run_command(["mount", "-t", "zfs", f"{pool_name}/grub", f"{root}/boot/grub"])
                 undo.append(["umount", f"{root}/boot/grub"])
@@ -594,8 +597,15 @@ def main():
                     write_progress(0.96, "Installing GRUB")
 
                     if os.path.exists("/sys/firmware/efi"):
-                        run_command(["mount", "-t", "efivarfs", "efivarfs", f"{root}/sys/firmware/efi/efivars"])
-                        undo.append(["umount", f"{root}/sys/firmware/efi/efivars"])
+                        cmd = ["mount", "-t", "efivarfs", "efivarfs", f"{root}/sys/firmware/efi/efivars"]
+                        try:
+                            subprocess.run(cmd, **run_kw)
+                        except subprocess.CalledProcessError as e:
+                            if e.returncode == 32 and "efivarfs already mounted on" in e.stderr:
+                                pass
+                            else:
+                                write_error(f"Command {cmd} failed with exit code {e.returncode}: {e.stderr}")
+                                raise
 
                         # Clean up dumps from NVRAM to prevent
                         # "failed to register the EFI boot entry: No space left on device"
@@ -606,14 +616,40 @@ def main():
 
                     os.makedirs(f"{root}/boot/efi", exist_ok=True)
                     for i, disk in enumerate(disks):
-                        efi_partition_number = 2
+                        if old_root is None:
+                            # Fresh installation - we know the layout
+                            efi_partition_number = 2
+                            run_command([
+                                "chroot", root, "grub-install", "--target=i386-pc", f"/dev/{disk}"
+                            ])
+                        else:
+                            partition_1_guid = None
+                            try:
+                                partition_1_guid = get_partition_guid(disk, 1)
+                            except Exception:
+                                pass
 
-                        run_command([
-                            "chroot", root, "grub-install", "--target=i386-pc", f"/dev/{disk}"
-                        ])
+                            if partition_1_guid == BIOS_BOOT_PARTITION_GUID:
+                                run_command([
+                                    "chroot", root, "grub-install", "--target=i386-pc", f"/dev/{disk}"
+                                ])
 
-                        if get_partition_guid(disk, efi_partition_number) != EFI_SYSTEM_PARTITION_GUID:
-                            continue
+                            # EFI partition: position 2 (SCALE) or 1 (Core migrations)
+                            efi_partition_number = None
+                            if partition_1_guid == EFI_SYSTEM_PARTITION_GUID:
+                                efi_partition_number = 1
+                            else:
+                                try:
+                                    if get_partition_guid(disk, 2) == EFI_SYSTEM_PARTITION_GUID:
+                                        efi_partition_number = 2
+                                except Exception:
+                                    pass
+
+                            if efi_partition_number is None:
+                                continue
+
+                            if get_partition_guid(disk, efi_partition_number) != EFI_SYSTEM_PARTITION_GUID:
+                                continue
 
                         partition = get_partition(disk, efi_partition_number)
                         run_command(["chroot", root, "mkdosfs", "-F", "32", "-s", "1", "-n", "EFI", partition])
