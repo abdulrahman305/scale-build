@@ -93,11 +93,6 @@ base-packages:
   install_recommends: true
 - name: htop
   install_recommends: true
-- name: incus
-  install_recommends: false
-- name: incus-agent
-  # agent is required to get proper events in websockets and run commands on VMs
-  install_recommends: false
 - name: ifstat
   install_recommends: true
 - name: openzfs
@@ -754,3 +749,8 @@ external-packages:
     url_template: "https://github.com/caddyserver/caddy/releases/download/v{version}/caddy_{version}_linux_{arch}.deb"
     post_install_commands:
       - ["systemctl", "disable", "caddy"]
+  ransomwared:
+    deb_version: "0.0.1"
+    url_template: "https://assets.sys.truenas.net/debian-packages/{package}_{version}_{arch}.deb"
+    post_install_commands:
+      - ["systemctl", "disable", "ransomwared"]
